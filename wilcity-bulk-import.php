@@ -137,6 +137,7 @@ $wilcityAddon = new RapidAddon('Migrating To Wilcity', 'wilcity_migrating_to_wil
 //$wilcityAddon->add_field('wilcity_migrate_from', 'Migrate From', 'text');
 
 $wilcityAddon->add_field('wilcity_logo', 'Logo', 'text');
+$wilcityAddon->add_field('wilcity_tagline', 'Tagline', 'text');
 $wilcityAddon->add_field('wilcity_toggle_business_status', 'Toggle Business Status', 'text');
 $wilcityAddon->add_field('wilcity_business_hours', 'Business Hours (If you migrate from Listify, please put it here)', 'text');
 $wilcityAddon->add_field('wilcity_business_normal_hours', 'Business Hours Normal Format Monday 06:00 AM - 08:00 PM', 'text');
@@ -388,6 +389,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 						SetSettings::setPostMeta($postID, 'logo_id', $aLogo['id']);
 					}
 					break;
+				case 'wilcity_tagline':
+					if ( !empty($aParseData) ){
+						SetSettings::setPostMeta($postID, 'tagline', aParseData);
+					}
+					break;
 				case 'wilcity_toggle_business_status':
 					if ( !empty($aParseData) ){
 						if ( $aParseData == 'enable' ){
@@ -541,7 +547,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 						}
 
 						if ( !empty($aAddress['address']) ){
-							ListingMetaBox::saveData($postID, $aAddress);
+							//ListingMetaBox::saveData($postID, $aAddress);
 						}
 					}
 					break;
@@ -554,7 +560,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							if ( $oGeocode->status == 'OK' ){
 								$aAddress['lat'] = $oGeocode->results[0]->geometry->location->lat;
 								$aAddress['lng'] = $oGeocode->results[0]->geometry->location->lng;
-								ListingMetaBox::saveData($postID, $aAddress);
+								//ListingMetaBox::saveData($postID, $aAddress);
 							}
 						}
 					}
@@ -569,7 +575,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							$aAddress['address'] = $aParseData['gAddress'];
 							$aAddress['lat'] = $aParseData['latitude'];
 							$aAddress['lng'] = $aParseData['longitude'];
-							ListingMetaBox::saveData($postID, $aAddress);
+							//ListingMetaBox::saveData($postID, $aAddress);
 						}
 
 						if ( !empty($aParseData['phone']) ){
@@ -670,15 +676,16 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							$aAddress['lat'] = $aLatLng[1];
 						}
 
-						if ( !empty($aAddress['address']) && !empty($aAddress['lat']) && !empty($aAddress['lat']) ){
-							ListingMetaBox::saveData($postID, $aAddress);
-						}
+						// if ( !empty($aAddress['address']) && !empty($aAddress['lat']) && !empty($aAddress['lat']) ){
+						// 	ListingMetaBox::saveData($postID, $aAddress);
+						// }
 					}
 					break;
 				case 'wilcity_location':
 					if ( !empty($aParseData) ){
 						if ( !empty($aParseData['lat']) && !empty($aParseData['lng']) && !empty($aParseData['address']) ){
 							ListingMetaBox::saveData($postID, $aParseData);
+							SetSettings::setPostMeta($postID, 'location', $aParseData);
 						}
 					}
 					break;
@@ -762,6 +769,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					break;
 			}
 		}
+	}
+	
+	if( !empty($aAddress) ) {
+		ListingMetaBox::saveData($postID, $aAddress);
+		SetSettings::setPostMeta($postID, 'location', $aAddress);
 	}
 }
 
