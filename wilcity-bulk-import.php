@@ -1,11 +1,4 @@
 <?php
-use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
-use WilokeListingTools\Framework\Helpers\SetSettings;
-
-$aSocialNetworks = array(
-	'facebook', 'twitter', 'google-plus', 'tumblr', 'vk', 'odnoklassniki', 'youtube', 'vimeo', 'rutube', 'dribbble', 'instagram', 'flickr', 'pinterest', 'medium', 'tripadvisor', 'wikipedia', 'stumbleupon', 'livejournal', 'linkedin', 'skype', 'bloglovin', 'whatsapp', 'soundcloud'
-);
-
 /*
  * Plugin Name: Wilcity Bulk Import
  * Plugin URI: https://wilcity.com
@@ -14,6 +7,13 @@ $aSocialNetworks = array(
  * Description: Migrating from another theme to Wilcity
  * Version: 1.0
  */
+
+use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
+use WilokeListingTools\Framework\Helpers\SetSettings;
+
+$aSocialNetworks = array(
+	'facebook', 'twitter', 'google-plus', 'tumblr', 'vk', 'odnoklassniki', 'youtube', 'vimeo', 'rutube', 'dribbble', 'instagram', 'flickr', 'pinterest', 'medium', 'tripadvisor', 'wikipedia', 'stumbleupon', 'livejournal', 'linkedin', 'skype', 'bloglovin', 'whatsapp', 'soundcloud'
+);
 
 include plugin_dir_path(__FILE__) . 'rapid-addon.php';
 
