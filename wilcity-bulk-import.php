@@ -544,10 +544,12 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							if ( $oOutput->status == 'OK' ){
 								$aAddress['address'] = $oOutput->results[1]->formatted_address;
 							}
-						}
+						} else {
+                            $aAddress['address'] = $aData['wilcity_address'];
+                        }
 
 						if ( !empty($aAddress['address']) ){
-							//ListingMetaBox::saveData($postID, $aAddress);
+							ListingMetaBox::saveData($postID, $aAddress);
 						}
 					}
 					break;
@@ -770,7 +772,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 			}
 		}
 	}
-	
+
 	if( !empty($aAddress) ) {
 		ListingMetaBox::saveData($postID, $aAddress);
 		SetSettings::setPostMeta($postID, 'location', $aAddress);
