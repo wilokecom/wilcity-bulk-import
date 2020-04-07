@@ -5,7 +5,7 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.1
+ * Version: 1.2
  */
 
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
