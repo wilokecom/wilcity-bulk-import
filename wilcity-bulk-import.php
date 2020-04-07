@@ -1,4 +1,12 @@
 <?php
+/*
+ * Plugin Name: Wilcity Bulk Import
+ * Plugin URI: https://wilcity.com
+ * Author: Wiloke
+ * Author URI: https://wilcity.com
+ * Description: Migrating from another theme to Wilcity
+ * Version: 1.1
+ */
 
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
 use WilokeListingTools\Framework\Helpers\SetSettings;
@@ -29,15 +37,6 @@ $aSocialNetworks = [
   'soundcloud'
 ];
 
-/*
- * Plugin Name: Wilcity Bulk Import
- * Plugin URI: https://wilcity.com
- * Author: Wiloke
- * Author URI: https://wilcity.com
- * Description: Migrating from another theme to Wilcity
- * Version: 1.0
- */
-
 include plugin_dir_path(__FILE__).'rapid-addon.php';
 
 function wilcityCleanImageFileName($fileName)
@@ -57,6 +56,7 @@ function wilcityCleanImageFileName($fileName)
 if (!function_exists('wilcityMigrationInsertImage')) {
     function wilcityMigrationInsertImage($imgSrc)
     {
+        $imgSrc        = trim($imgSrc);
         $wp_upload_dir = wp_upload_dir();
         $filename      = basename($imgSrc);
         $aPathInfo     = pathinfo($filename);
@@ -584,7 +584,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                     $aAddress['address'] = $aParseData;
                     if ((empty($aAddress['lat']) && empty($aAddress['lng'])) && empty($aAddress['wilcity_lat_lng'])) {
                         if (!empty($aAddress['address'])) {
-                            $geocode  = file_get_contents("https://maps.google.com/maps/api/geocode/json?address=".urlencode($aAddress['address'])."&key=".trim($aThemeOptions['general_google_api']));
+                            $geocode  = file_get_contents("https://maps.google.com/maps/api/geocode/json?address=".
+                                                          urlencode($aAddress['address'])."&key=".
+                                                          trim($aThemeOptions['general_google_api']));
                             $oGeocode = json_decode($geocode);
                             if ($oGeocode->status == 'OK') {
                                 $aAddress['lat'] = $oGeocode->results[0]->geometry->location->lat;
