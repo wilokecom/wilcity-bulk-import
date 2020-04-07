@@ -292,8 +292,9 @@ function convertStringToFormatBusinessHour($str)
     foreach ($aDayofHour as $key => $dayofHour) {
         
         $_dayofHour = strtolower($dayofHour);
-        
-        if ($_dayofHour == 'closed' || empty($_dayofHour)) {
+        if ($_dayofHour == 'removed') {
+            $aDayofHour[$key] = $aDayOfWeeks[$key].' removed';
+        } else if ($_dayofHour == 'closed' || empty($_dayofHour)) {
             $aDayofHour[$key] = $aDayOfWeeks[$key].' closed';
         } else if ($_dayofHour == '24 hours') {
             $aDayofHour[$key] = $aDayOfWeeks[$key].' 12:00AM–11:45PM';
@@ -583,9 +584,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                     $aAddress['address'] = $aParseData;
                     if ((empty($aAddress['lat']) && empty($aAddress['lng'])) && empty($aAddress['wilcity_lat_lng'])) {
                         if (!empty($aAddress['address'])) {
-                            $geocode  = file_get_contents("https://maps.google.com/maps/api/geocode/json?address=".
-                                                          urlencode($aAddress['address'])."&key=".
-                                                          trim($aThemeOptions['general_google_api']));
+                            $geocode  = file_get_contents("https://maps.google.com/maps/api/geocode/json?address=".urlencode($aAddress['address'])."&key=".trim($aThemeOptions['general_google_api']));
                             $oGeocode = json_decode($geocode);
                             if ($oGeocode->status == 'OK') {
                                 $aAddress['lat'] = $oGeocode->results[0]->geometry->location->lat;
@@ -763,7 +762,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                                 }
                             }
                         } else {
-                            $aGalleryToArray = explode('|', $aParseData);
+                            if (strpos($aParseData, ',') !== false) {
+                                $aGalleryToArray = explode(',', $aParseData);
+                            } else {
+                                $aGalleryToArray = explode('|', $aParseData);
+                            }
                             foreach ($aGalleryToArray as $imgSrc) {
                                 $aAttachment = wilcityMigrationInsertImage($imgSrc);
                                 if ($aAttachment) {
@@ -815,10 +818,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
         $aUpdateEvent['lat']       = sanitize_text_field($aAddress['lat']);
         $aUpdateEvent['lng']       = sanitize_text_field($aAddress['lng']);
         
-        $aUpdateEvent['starts']    = date('m/d/Y', strtotime($aEventData['start_on']));
-        $aUpdateEvent['endsOn']    = date('m/d/Y', strtotime($aEventData['end_on']));
+        $aUpdateEvent['starts'] = date('m/d/Y', strtotime($aEventData['start_on']));
+        $aUpdateEvent['endsOn'] = date('m/d/Y', strtotime($aEventData['end_on']));
         
-        $timeFormat = get_option('time_format');
+        $timeFormat                = get_option('time_format');
         $aUpdateEvent['openingAt'] = strtoupper(date($timeFormat, strtotime($aEventData['start_at'])));
         $aUpdateEvent['closedAt']  = strtoupper(date($timeFormat, strtotime($aEventData['end_at'])));
         
@@ -827,12 +830,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
             $aUpdateEvent['specifyDays'] = $aEventData['specify_day'];
             $aPrepares[]                 = '%s';
         }
-     
+        
         $status = \WilokeListingTools\Models\EventModel::updateEventData($aListing['ID'], [
           'values'   => $aUpdateEvent,
           'prepares' => $aPrepares
         ]);
-        var_dump($status);die;
     }
     
     //Listing location
