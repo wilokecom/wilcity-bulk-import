@@ -5,7 +5,7 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.3
+ * Version: 1.4
  */
 
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
@@ -163,7 +163,8 @@ $wilcityAddon = new RapidAddon('Migrating To Wilcity', 'wilcity_migrating_to_wil
 $wilcityAddon->add_field('wilcity_logo', 'Logo', 'text');
 $wilcityAddon->add_field('wilcity_tagline', 'Tagline', 'text');
 $wilcityAddon->add_field('wilcity_toggle_business_status', 'Toggle Business Status', 'text');
-$wilcityAddon->add_field('wilcity_listify_business_hours', 'Business Hours (If you migrate from Listify, please put it here)',
+$wilcityAddon->add_field('wilcity_listify_business_hours',
+  'Business Hours (If you migrate from Listify, please put it here)',
   'text');
 $wilcityAddon->add_field('wilcity_business_normal_hours', 'Business Hours Normal Format Monday 06:00 AM - 08:00 PM',
   'text');
@@ -574,9 +575,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                             }
                         }
                         
-                        // if ( !empty($aAddress['address']) ){
-                        // 	ListingMetaBox::saveData($postID, $aAddress);
-                        // }
+                        if (!empty($aAddress['address'])) {
+                            ListingMetaBox::saveData($postID, $aAddress);
+                        }
                     }
                     break;
                 case 'wilcity_address':
