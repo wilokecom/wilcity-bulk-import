@@ -101,20 +101,22 @@ if (!function_exists('wilcityMigrationInsertImage')) {
           'post_status'    => 'inherit'
         ];
         // Insert the attachment.
-        $attach_id = wp_insert_attachment($attachment, $wp_upload_dir['path'].'/'.$filename);
+        $attach_id   = wp_insert_attachment($attachment, $wp_upload_dir['path'].'/'.$filename);
+//        $attach_data = wp_generate_attachment_metadata($attach_id, $filename);
+//        wp_update_attachment_metadata($attach_id, $attach_data);
         
         // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
         require_once(ABSPATH.'wp-admin/includes/image.php');
         
-        $imagenew = get_post($attach_id);
-        if (!empty($imagenew)) {
-            return [
-              'id'  => $attach_id,
-              'url' => $wp_upload_dir['url'].'/'.$filename
-            ];
-        }
-        $fullsizepath = get_attached_file($imagenew->ID);
-        $attach_data  = wp_generate_attachment_metadata($attach_id, $fullsizepath);
+//        $imagenew = get_post($attach_id);
+//        if (!empty($imagenew)) {
+//            return [
+//              'id'  => $attach_id,
+//              'url' => $wp_upload_dir['url'].'/'.$filename
+//            ];
+//        }
+//        $fullsizepath = get_attached_file($imagenew->ID);
+        $attach_data  = wp_generate_attachment_metadata($attach_id, $wp_upload_dir['path'].'/'.$filename);
         wp_update_attachment_metadata($attach_id, $attach_data);
         
         return [
@@ -188,6 +190,9 @@ $wilcityAddon->add_field('wilcity_lat', 'Latitude', 'text');
 $wilcityAddon->add_field('wilcity_lng', 'Longitude', 'text');
 $wilcityAddon->add_field('wilcity_lat_lng',
   'Latitude & Longitude (Some themes do not separated Lat and Lng, so you can use this field)', 'text');
+//$wilcityAddon->add_field('wilcity_restaurant_menu_title', 'Restaurant Menu Title', 'text');
+//$wilcityAddon->add_field('wilcity_restaurant_menu_desc', 'Restaurant Menu Description', 'text');
+$wilcityAddon->add_field('wilcity_restaurant_menu_items', 'Restaurant Menu Items', 'text');
 
 $wilcityAddon->add_field('wilcity_location', 'Wilcity Location', 'text');
 
@@ -347,7 +352,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
       'wilcity_event_end_on',
       'wilcity_button_link',
       'wilcity_button_icon',
-      'wilcity_button_name'
+      'wilcity_button_name',
+      'wilcity_restaurant_menu_title',
+      'wilcity_restaurant_menu_desc',
+      'wilcity_restaurant_menu_items'
     ];
     
     foreach ($aSocialNetworks as $socialNetwork) {
@@ -357,8 +365,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
     $aDaysOfWeeks    = wilokeListingToolsRepository()->get('general:aDayOfWeek');
     $aDaysOfWeekKeys = array_keys($aDaysOfWeeks);
     
-    $aBusinessHours = [];
-    $aAddress       = [];
+    $aBusinessHours   = [];
+    $aAddress         = [];
+    $aRestaurantMenus = [];
     
     $aEventData = [];
     foreach ($aFields as $field) {
@@ -575,9 +584,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                             }
                         }
                         
-                        if (!empty($aAddress['address'])) {
-                            ListingMetaBox::saveData($postID, $aAddress);
-                        }
+                        //                        if (!empty($aAddress['address'])) {
+                        //                            ListingMetaBox::saveData($postID, $aAddress);
+                        //                        }
                     }
                     break;
                 case 'wilcity_address':
@@ -789,6 +798,45 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                         do_action('wilcity/focus-post-expiration', $aListing['ID']);
                     }
                     break;
+                case 'wilcity_restaurant_menu_items':
+                    $aItems = is_array($aParseData) ? $aParseData : explode('|', $aParseData);
+                    foreach ($aItems as $order => $aItem) {
+                        $aItem = maybe_unserialize($aItem);
+                        
+                        $title = isset($aItem['title']) ? $aItem['title'] : '';
+                        $desc  = isset($aItem['description']) ? $aItem['description'] : '';
+                        $icon  = isset($aItem['icon']) ? $aItem['icon'] : '';
+                        $group = isset($aItem['group']) ? $aItem['group'] : '';
+                        
+                        SetSettings::setPostMeta($aListing['ID'], 'group_title_'.$order, $title);
+                        SetSettings::setPostMeta($aListing['ID'], 'group_description_'.$order, $desc);
+                        SetSettings::setPostMeta($aListing['ID'], 'group_icon_'.$order, $icon);
+                        //                        array ( 0 => array ( 'gallery' => array ( 13235 => 'http://127.0.0.1:8888/wilcity.com/wp-content/uploads/2020/01/yui5vfkhuzs-9.jpg', 13234 => 'http://127.0.0.1:8888/wilcity.com/wp-content/uploads/2020/01/9svnen8xpti-9.jpg', 13233 => 'http://127.0.0.1:8888/wilcity.com/wp-content/uploads/2020/01/kzcnvr-vdqu-9.jpg', ), 'title' => '123', 'description' => '456', 'price' => '12', 'link_to' => '#', 'is_open_new_window' => 'yes', ), )
+                        // Note that gallery can like this gallery => https://image1,https://image2
+                        $group = maybe_unserialize($group);
+                        if (is_array($group)) {
+                            foreach ($group as $groupOrder => $aGroupItem) {
+                                if (isset($aGroupItem['gallery']) && is_string($aGroupItem['gallery'])) {
+                                    $aRawGallery    = explode(',', $aGroupItem['gallery']);
+                                    $aParsedGallery = [];
+                                    foreach ($aRawGallery as $imgSrc) {
+                                        $aAttachment = wilcityMigrationInsertImage($imgSrc);
+                                        if ($aAttachment) {
+                                            $aParsedGallery[$aAttachment['id']] = $aAttachment['url'];
+                                        }
+                                    }
+                                    $aGroupItem['gallery'] = $aParsedGallery;
+                                    $group[$groupOrder]    = $aGroupItem;
+                                }
+                                
+                                SetSettings::setPostMeta(
+                                  $aListing['ID'], 'restaurant_menu_group_'.$groupOrder,
+                                  $group
+                                );
+                            }
+                        }
+                    }
+                    break;
                 default:
                     if (strpos($field, 'wilcity_social_media_') !== false) {
                         if (!empty($aParseData)) {
@@ -799,6 +847,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                             SetSettings::setPostMeta($aListing['ID'], 'social_networks', $aSocialUpdated);
                         }
                     }
+                    break;
+                    //                case 'wilcity_restaurant_menu_title':
+                    ////                    $aRestaurantMenus['']
+                    //                    break;
+                    //                case 'wilcity_restaurant_menu_desc':
                     break;
             }
         }
