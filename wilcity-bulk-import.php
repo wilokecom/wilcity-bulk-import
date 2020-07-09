@@ -76,6 +76,11 @@ if (!function_exists('wilcityMigrationInsertImage')) {
             
             if (wp_get_attachment_image_url($postID)) {
                 $filename = uniqid($postTitle).'.'.$aPathInfo['extension'];
+                
+                return [
+                  'id'  => $postID,
+                  'url' => $wp_upload_dir['path'].'/'.$filename
+                ];
             }
         }
         
@@ -101,22 +106,22 @@ if (!function_exists('wilcityMigrationInsertImage')) {
           'post_status'    => 'inherit'
         ];
         // Insert the attachment.
-        $attach_id   = wp_insert_attachment($attachment, $wp_upload_dir['path'].'/'.$filename);
-//        $attach_data = wp_generate_attachment_metadata($attach_id, $filename);
-//        wp_update_attachment_metadata($attach_id, $attach_data);
+        $attach_id = wp_insert_attachment($attachment, $wp_upload_dir['path'].'/'.$filename);
+        //        $attach_data = wp_generate_attachment_metadata($attach_id, $filename);
+        //        wp_update_attachment_metadata($attach_id, $attach_data);
         
         // Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
         require_once(ABSPATH.'wp-admin/includes/image.php');
         
-//        $imagenew = get_post($attach_id);
-//        if (!empty($imagenew)) {
-//            return [
-//              'id'  => $attach_id,
-//              'url' => $wp_upload_dir['url'].'/'.$filename
-//            ];
-//        }
-//        $fullsizepath = get_attached_file($imagenew->ID);
-        $attach_data  = wp_generate_attachment_metadata($attach_id, $wp_upload_dir['path'].'/'.$filename);
+        //        $imagenew = get_post($attach_id);
+        //        if (!empty($imagenew)) {
+        //            return [
+        //              'id'  => $attach_id,
+        //              'url' => $wp_upload_dir['url'].'/'.$filename
+        //            ];
+        //        }
+        //        $fullsizepath = get_attached_file($imagenew->ID);
+        $attach_data = wp_generate_attachment_metadata($attach_id, $wp_upload_dir['path'].'/'.$filename);
         wp_update_attachment_metadata($attach_id, $attach_data);
         
         return [
@@ -247,13 +252,34 @@ function wilcityDetermineDay($rawDay, $aData = [])
                   'day'  => $day
                 ];
             } else {
-                $aParsed = explode(apply_filters('wilcity-bulk-import/explode-hour-clue', '-'), $bh);
+                $aParseBusinessHourTable = explode('|', $bh);
+                $aInfo                   = [];
+                if (isset($aParseBusinessHourTable[0])) {
+                    $aParsed = explode(
+                      apply_filters('wilcity-bulk-import/explode-hour-clue', '-'),
+                      $aParseBusinessHourTable[0]
+                    );
+                    
+                    $aInfo['first'] = [
+                      'start' => wilokeBuildBH(trim($aParsed[0])),
+                      'close' => wilokeBuildBH(trim($aParsed[1]))
+                    ];
+                }
+                
+                if (isset($aParseBusinessHourTable[1])) {
+                    $aParsed         = explode(
+                      apply_filters('wilcity-bulk-import/explode-hour-clue', '-'),
+                      $aParseBusinessHourTable[1]
+                    );
+                    
+                    $aInfo['second'] = [
+                      'start' => wilokeBuildBH(trim($aParsed[0])),
+                      'close' => wilokeBuildBH(trim($aParsed[1]))
+                    ];
+                }
                 
                 return [
-                  'info' => [
-                    'start' => wilokeBuildBH(trim($aParsed[0])),
-                    'close' => wilokeBuildBH(trim($aParsed[1])),
-                  ],
+                  'info' => $aInfo,
                   'day'  => $day
                 ];
             }
@@ -319,6 +345,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
     
     $aFields = [
       'wilcity_logo',
+      'wilcity_tagline',
       'wilcity_toggle_business_status',
       'wilcity_listify_business_hours',
       'wilcity_business_normal_hours',
@@ -486,7 +513,8 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                     if (!empty($aData['wilcity_business_normal_hours'])) {
                         $aBusinessHours['hourMode']      = 'open_for_selected_hours';
                         $aBusinessHours['businessHours'] = [];
-                        $aRawBH                          = explode(',', $aData['wilcity_business_normal_hours']);
+                        $aRawBH                          = explode(',', trim($aData['wilcity_business_normal_hours'],
+                          ','));
                         $aParsedBusinessHours            = wilcityParseNormalBusinessHour($aRawBH, $aData);
                         $order                           = 0;
                         foreach ($aParsedBusinessHours as $dayOfWeek => $aBHInfo) {
@@ -495,15 +523,25 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                                 $aDay['operating_times']['firstOpenHour']  = '';
                                 $aDay['operating_times']['firstCloseHour'] = '';
                             } else {
-                                $aDay['isOpen']                            = isset($aBHInfo['isClose']) ? 'no' : 'yes';
-                                $aDay['operating_times']['firstOpenHour']  = $aBHInfo['start'];
-                                $aDay['operating_times']['firstCloseHour'] = $aBHInfo['close'];
+                                $aDay['isOpen'] = isset($aBHInfo['isClose']) ? 'no' : 'yes';
+                                
+                                if (isset($aBHInfo['first'])) {
+                                    $aDay['operating_times']['firstOpenHour']  = $aBHInfo['first']['start'];
+                                    $aDay['operating_times']['firstCloseHour'] = $aBHInfo['first']['close'];
+                                    
+                                    if (isset($aBHInfo['second'])) {
+                                        $aDay['operating_times']['secondOpenHour']  = $aBHInfo['second']['start'];
+                                        $aDay['operating_times']['secondCloseHour'] = $aBHInfo['second']['close'];
+                                    }
+                                } else {
+                                    $aDay['operating_times']['firstOpenHour']  = $aBHInfo['start'];
+                                    $aDay['operating_times']['firstCloseHour'] = $aBHInfo['close'];
+                                }
                             }
                             
                             $aBusinessHours['businessHours'][$aDaysOfWeekKeys[$order]] = $aDay;
                             $order++;
                         }
-                        
                         ListingMetaBox::saveBusinessHours($aListing['ID'], $aBusinessHours);
                     }
                     break;
@@ -705,15 +743,15 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                         if (is_array($aParseData)) {
                             if (isset($aParseData['lat'])) {
                                 $aAddress['lat'] = $aParseData['lat'];
-                                $aAddress['lat'] = $aParseData['lng'];
+                                $aAddress['lng'] = $aParseData['lng'];
                             } else if (isset($aParseData[0])) {
                                 $aAddress['lat'] = $aParseData[0];
-                                $aAddress['lat'] = $aParseData[1];
+                                $aAddress['lng'] = $aParseData[1];
                             }
                         } else {
                             $aLatLng         = explode(',', $aParseData);
                             $aAddress['lat'] = $aLatLng[0];
-                            $aAddress['lat'] = $aLatLng[1];
+                            $aAddress['lng'] = $aLatLng[1];
                         }
                     }
                     break;
@@ -864,7 +902,6 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
     
     //Event Data
     if (!empty($aEventData) && !empty($aEventData['start_on']) && !empty($aEventData['end_on'])) {
-        
         $aUpdateEvent              = [];
         $aUpdateEvent['objectID']  = absint($aListing['ID']);
         $aUpdateEvent['parentID']  = absint($aEventData['parentID']);
