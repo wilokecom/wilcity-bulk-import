@@ -5,7 +5,7 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.5
+ * Version: 1.6
  */
 
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
@@ -219,8 +219,8 @@ $wilcityAddon->add_field('wilcity_event_start_on', 'Event Start On (EG: 2018/11/
 $wilcityAddon->add_field('wilcity_event_end_at', 'Event Close At (EG: 12:00:00 AM)', 'text');
 $wilcityAddon->add_field('wilcity_event_end_on', 'Event Close On (EG: 2018/11/30)', 'text');
 
-$aDayOfWeeks      = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-$aDayOfWeeksShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+$aDayOfWeeks      = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+$aDayOfWeeksShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
 foreach ($aSocialNetworks as $socialNetwork) {
     $wilcityAddon->add_field('wilcity_social_media_'.$socialNetwork, ucfirst($socialNetwork).' URL', 'text');
@@ -242,6 +242,7 @@ function wilcityDetermineDay($rawDay, $aData = [])
             
             $bh     = trim(str_replace($day, '', $rawDay));
             $rawDay = strtolower($rawDay);
+            
             if (strpos($rawDay, 'close') !== false) {
                 return [
                   'info' => [
@@ -254,6 +255,7 @@ function wilcityDetermineDay($rawDay, $aData = [])
             } else {
                 $aParseBusinessHourTable = explode('|', $bh);
                 $aInfo                   = [];
+                
                 if (isset($aParseBusinessHourTable[0])) {
                     $aParsed = explode(
                       apply_filters('wilcity-bulk-import/explode-hour-clue', '-'),
@@ -267,7 +269,7 @@ function wilcityDetermineDay($rawDay, $aData = [])
                 }
                 
                 if (isset($aParseBusinessHourTable[1])) {
-                    $aParsed         = explode(
+                    $aParsed = explode(
                       apply_filters('wilcity-bulk-import/explode-hour-clue', '-'),
                       $aParseBusinessHourTable[1]
                     );
@@ -283,15 +285,6 @@ function wilcityDetermineDay($rawDay, $aData = [])
                   'day'  => $day
                 ];
             }
-        } else {
-            return [
-              'info' => [
-                'start'   => '',
-                'close'   => '',
-                'isClose' => 'yes'
-              ],
-              'day'  => $day
-            ];
         }
     }
     
@@ -306,13 +299,14 @@ function wilcityParseNormalBusinessHour($aParseBusinessHours, $aData = [])
     global $aDayOfWeeks, $aDayOfWeeksShort;
     
     $aBusinessHours = [];
+    
     foreach ($aParseBusinessHours as $rawVal) {
         $aParsed                         = wilcityDetermineDay($rawVal, $aData);
         $aBusinessHours[$aParsed['day']] = $aParsed['info'];
     }
     
-    $aDayOfWeeks      = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-    $aDayOfWeeksShort = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    $aDayOfWeeks      = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+    $aDayOfWeeksShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
     
     return $aBusinessHours;
 }
@@ -320,7 +314,7 @@ function wilcityParseNormalBusinessHour($aParseBusinessHours, $aData = [])
 function convertStringToFormatBusinessHour($str)
 {
     $aDayofHour  = array_map('trim', explode(',', $str));
-    $aDayOfWeeks = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+    $aDayOfWeeks = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
     foreach ($aDayofHour as $key => $dayofHour) {
         
         $_dayofHour = strtolower($dayofHour);
@@ -389,7 +383,16 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
         $aFields[] = 'wilcity_social_media_'.$socialNetwork;
     }
     
-    $aDaysOfWeeks    = wilokeListingToolsRepository()->get('general:aDayOfWeek');
+    $aDaysOfWeeks = [
+      'monday'    => esc_html__('Monday', 'wiloke-listing-tools'),
+      'tuesday'   => esc_html__('Tuesday', 'wiloke-listing-tools'),
+      'wednesday' => esc_html__('Wednesday', 'wiloke-listing-tools'),
+      'thursday'  => esc_html__('Thursday', 'wiloke-listing-tools'),
+      'friday'    => esc_html__('Friday', 'wiloke-listing-tools'),
+      'saturday'  => esc_html__('Saturday', 'wiloke-listing-tools'),
+      'sunday'    => esc_html__('Sunday', 'wiloke-listing-tools')
+    ];
+    
     $aDaysOfWeekKeys = array_keys($aDaysOfWeeks);
     
     $aBusinessHours   = [];
@@ -538,10 +541,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
                                     $aDay['operating_times']['firstCloseHour'] = $aBHInfo['close'];
                                 }
                             }
-                            
                             $aBusinessHours['businessHours'][$aDaysOfWeekKeys[$order]] = $aDay;
                             $order++;
                         }
+                        
                         ListingMetaBox::saveBusinessHours($aListing['ID'], $aBusinessHours);
                     }
                     break;
