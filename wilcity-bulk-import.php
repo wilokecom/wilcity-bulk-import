@@ -64,45 +64,30 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 
 		$wp_upload_dir = wp_upload_dir();
 		$filename = basename($imgSrc);
-		$aPathInfo = pathinfo($filename);
 		$filename = wilcityCleanImageFileName($filename);
 		$filetype = wp_check_filetype($filename, null);
 
-//		if (is_file($wp_upload_dir['path'] . '/' . $filename)) {
-//			global $wpdb;
-//			$postTitle = preg_replace('/\.[^.]+$/', '', $filename);
-//
-//			$postID = $wpdb->get_var(
-//				$wpdb->prepare(
-//					"SELECT ID FROM $wpdb->posts WHERE post_title=%s and post_mime_type=%s",
-//					$postTitle, $filetype['type']
-//				)
-//			);
-//
-//			if (wp_get_attachment_image_url($postID)) {
-//				$filename = uniqid($postTitle) . '.' . $aPathInfo['extension'];
-//
-//				return [
-//					'id'  => $postID,
-//					'url' => $wp_upload_dir['path'] . '/' . $filename
-//				];
-//			}
-//		}
+		if (is_file($wp_upload_dir['path'] . '/' . $filename)) {
+			global $wpdb;
+			$postTitle = preg_replace('/\.[^.]+$/', '', $filename);
 
-//		$ch = curl_init($imgSrc);
-//		curl_setopt($ch, CURLOPT_HEADER, 0);
-//		curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-//		$raw = curl_exec($ch);
-//		curl_close($ch);
-//		$fp = fopen($wp_upload_dir['path'] . '/' . $filename, 'x');
-//		$writeStatus = fwrite($fp, $raw);
-//		fclose($fp);
+			$postID = $wpdb->get_var(
+				$wpdb->prepare(
+					"SELECT ID FROM $wpdb->posts WHERE post_title=%s and post_mime_type=%s",
+					$postTitle, $filetype['type']
+				)
+			);
+
+			if ($url = wp_get_attachment_image_url($postID)) {
+				return [
+					'id'  => $postID,
+					'url' => $url
+				];
+			}
+		}
+
 		$tmpFile = download_url($imgSrc);
-
-//		var_export($tmpFile);die;
 		if ($tmpFile === false) {
-			var_export($tmpFile);
-			die;
 			return false;
 		}
 		copy($tmpFile, $wp_upload_dir['path'] . '/' . $filename);
@@ -118,23 +103,22 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 		];
 		// Insert the attachment.
 		$attach_id = wp_insert_attachment($aAttachment, $wp_upload_dir['path'] . '/' . $filename);
-		//        $attach_data = wp_generate_attachment_metadata($attach_id, $filename);
-		//        wp_update_attachment_metadata($attach_id, $attach_data);
+		$aAttachData = wp_generate_attachment_metadata($attach_id, $filename);
+
+		if ($aAttachData) {
+			wp_update_attachment_metadata($attach_id, $aAttachData);
+		}
 
 		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
 		require_once(ABSPATH . 'wp-admin/includes/image.php');
+		$oNewImage = get_post($attach_id);
 
-		$imagenew = get_post($attach_id);
-
-		if (!empty($imagenew)) {
+		if (!empty($oNewImage)) {
 			return [
 				'id'  => $attach_id,
 				'url' => $wp_upload_dir['url'] . '/' . $filename
 			];
 		}
-
-		$attach_data = wp_generate_attachment_metadata($attach_id, $wp_upload_dir['path'] . '/' . $filename);
-		wp_update_attachment_metadata($attach_id, $attach_data);
 
 		return [
 			'id'  => $attach_id,
@@ -188,6 +172,7 @@ $wilcityAddon->add_field('wilcity_listify_business_hours',
 $wilcityAddon->add_field('wilcity_business_normal_hours',
 	'Business Hours Normal Format Monday 06:00 AM - 08:00 PM. If you are using shiftwork, please use this structure Monday 06:00 – 10:00|13:00 - 23:00',
 	'text');
+$wilcityAddon->add_field('wilcity_listing_pro_business_hours', 'ListingPro Business Hour', 'text');
 $wilcityAddon->add_field('wilcity_wp_job_hours', 'WP Jobs Business Hour',
 	'text');
 $wilcityAddon->add_field('wilcity_listing_claim', 'Listing Claim Status', 'text');
@@ -246,6 +231,28 @@ function wilokeBuildBH($time)
 
 function wilcityDetermineDay($rawDay, $aData = [])
 {
+	$rawDay = str_replace(
+		[
+			'Monday:',
+			'Tuesday:',
+			'Wednesday:',
+			'Thursday:',
+			'Friday:',
+			'Saturday:',
+			'Sunday:',
+		],
+		[
+			'Monday',
+			'Tuesday',
+			'Wednesday',
+			'Thursday',
+			'Friday',
+			'Saturday',
+			'Sunday',
+		],
+		$rawDay
+	);
+
 	global $aDayOfWeeks, $aDayOfWeeksShort;
 
 	foreach ($aDayOfWeeks as $key => $day) {
@@ -312,10 +319,19 @@ function wilcityParseNormalBusinessHour($aParseBusinessHours, $aData = [])
 	global $aDayOfWeeks, $aDayOfWeeksShort;
 
 	$aBusinessHours = [];
-
 	foreach ($aParseBusinessHours as $rawVal) {
 		$aParsed = wilcityDetermineDay($rawVal, $aData);
 		$aBusinessHours[$aParsed['day']] = $aParsed['info'];
+	}
+
+	if (count($aBusinessHours) != 7) {
+		foreach ($aParseBusinessHours as $rawDay) {
+			foreach ($aDayOfWeeks as $key => $day) {
+				if (strpos($rawDay, $day) === false && strpos($rawDay, $aDayOfWeeksShort[$key]) === false) {
+					$aBusinessHours[$day] = false;
+				}
+			}
+		}
 	}
 
 	$aDayOfWeeks = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
@@ -355,6 +371,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 		'wilcity_tagline',
 		'wilcity_toggle_business_status',
 		'wilcity_listify_business_hours',
+		'wilcity_listing_pro_business_hours',
 		'wilcity_business_normal_hours',
 		'wilcity_wp_job_hours',
 		'wilcity_listing_claim',
@@ -522,6 +539,41 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							$aBusinessHours['businessHours'][$aDaysOfWeekKeys[$order]] = $aDay;
 							$order++;
 						}
+						ListingMetaBox::saveBusinessHours($aListing['ID'], $aBusinessHours);
+					}
+					break;
+				case 'wilcity_listing_pro_business_hours':
+					if (!empty($aData['wilcity_listing_pro_business_hours'])) {
+						$aBusinessHours['hourMode'] = 'open_for_selected_hours';
+						$aBusinessHours['businessHours'] = [];
+						$aRawBH = explode('|', trim($aData['wilcity_listing_pro_business_hours'], '|'));
+						$aParsedBusinessHours = wilcityParseNormalBusinessHour($aRawBH, $aData);
+						$order = 0;
+						foreach ($aParsedBusinessHours as $dayOfWeek => $aBHInfo) {
+							if (!$aBusinessHours) {
+								$aDay['isOpen'] = 'no';
+								$aDay['operating_times']['firstOpenHour'] = '';
+								$aDay['operating_times']['firstCloseHour'] = '';
+							} else {
+								$aDay['isOpen'] = isset($aBHInfo['isClose']) ? 'no' : 'yes';
+
+								if (isset($aBHInfo['first'])) {
+									$aDay['operating_times']['firstOpenHour'] = $aBHInfo['first']['start'];
+									$aDay['operating_times']['firstCloseHour'] = $aBHInfo['first']['close'];
+
+									if (isset($aBHInfo['second'])) {
+										$aDay['operating_times']['secondOpenHour'] = $aBHInfo['second']['start'];
+										$aDay['operating_times']['secondCloseHour'] = $aBHInfo['second']['close'];
+									}
+								} else {
+									$aDay['operating_times']['firstOpenHour'] = $aBHInfo['start'];
+									$aDay['operating_times']['firstCloseHour'] = $aBHInfo['close'];
+								}
+							}
+							$aBusinessHours['businessHours'][$aDaysOfWeekKeys[$order]] = $aDay;
+							$order++;
+						}
+
 						ListingMetaBox::saveBusinessHours($aListing['ID'], $aBusinessHours);
 					}
 					break;
