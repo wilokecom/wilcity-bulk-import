@@ -430,6 +430,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	$aRestaurantMenus = [];
 
 	$aEventData = [];
+	if (empty($aListing['ID']) && !empty($postID)) {
+		$aListing['ID'] = $postID;
+	}
+
 	foreach ($aFields as $field) {
 		if (empty($aListing['ID']) || $wilcityAddon->can_update_meta($field, $importOptions)) {
 			$data = $aData[$field];
