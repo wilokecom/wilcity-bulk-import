@@ -5,7 +5,7 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.6
+ * Version: 1.6.1
  */
 
 use WilokeListingTools\Framework\Helpers\GetSettings;
@@ -101,6 +101,8 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 			'post_content'   => '',
 			'post_status'    => 'inherit'
 		];
+
+		require_once(ABSPATH . 'wp-admin/includes/image.php');
 		// Insert the attachment.
 		$attach_id = wp_insert_attachment($aAttachment, $wp_upload_dir['path'] . '/' . $filename);
 		$aAttachData = wp_generate_attachment_metadata($attach_id, $filename);
@@ -110,7 +112,6 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 		}
 
 		// Make sure that this file is included, as wp_generate_attachment_metadata() depends on it.
-		require_once(ABSPATH . 'wp-admin/includes/image.php');
 		$oNewImage = get_post($attach_id);
 
 		if (!empty($oNewImage)) {
