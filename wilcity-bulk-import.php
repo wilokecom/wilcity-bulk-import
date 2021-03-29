@@ -54,6 +54,11 @@ function wilcityCleanImageFileName($fileName)
 	return $fileName;
 }
 
+function wilcityIsImageExists($url)
+{
+	return getimagesize($url);
+}
+
 if (!function_exists('wilcityMigrationInsertImage')) {
 	function wilcityMigrationInsertImage($imgSrc)
 	{
@@ -61,6 +66,7 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 			return false;
 		}
 		$imgSrc = trim($imgSrc);
+		$imgSrc = str_replace(['-150x150', '-300x300'], ['', ''], $imgSrc);
 
 		$wp_upload_dir = wp_upload_dir();
 		$filename = basename($imgSrc);
@@ -79,10 +85,14 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 			);
 
 			if ($url = wp_get_attachment_image_url($postID)) {
-				return [
-					'id'  => $postID,
-					'url' => $url
-				];
+				if (wilcityIsImageExists($url)) {
+					return [
+						'id'  => $postID,
+						'url' => $url
+					];
+				} else {
+					wp_delete_attachment($postID, true);
+				}
 			}
 		}
 
@@ -185,6 +195,8 @@ $wilcityAddon->add_field('wilcity_single_price', 'Single Price', 'text');
 $wilcityAddon->add_field('wilcity_featured_image', 'Featured Image URL', 'text');
 $wilcityAddon->add_field('wilcity_cover_image', 'Cover Image URL', 'text');
 $wilcityAddon->add_field('wilcity_gallery', 'Gallery Image Urls', 'text');
+$wilcityAddon->add_field('wiloke_listgo_settings', 'Listgo General Settings', 'text');
+$wilcityAddon->add_field('wiloke_listgo_gallery', 'Listgo Gallery', 'text');
 $wilcityAddon->add_field('wilcity_timezone', 'Timezone', 'text');
 $wilcityAddon->add_field('wilcity_email', 'Email', 'text');
 $wilcityAddon->add_field('wilcity_phone', 'Phone', 'text');
@@ -211,6 +223,7 @@ $wilcityAddon->add_field('wilcity_button_name', 'Button Name', 'text');
 //$wilcityAddon->add_field('wilcity_event_timezone', 'Event Timezone', 'text');
 $wilcityAddon->add_field('wilcity_event_frequency',
 	'Event Frequency (occurs_once/daily/weekly). Leave empty mean occurs_once', 'text');
+$wilcityAddon->add_field('wilcity_listgo_event_settings', 'Listgo Event Settings', 'text');
 $wilcityAddon->add_field('wilcity_event_belongs_to', 'Event Parent', 'text');
 $wilcityAddon->add_field('wilcity_event_specify_day', 'Specify day', 'text');
 $wilcityAddon->add_field('wilcity_event_start_at', 'Event Opening At (EG: 12:00:00 AM)', 'text');
@@ -393,8 +406,11 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 		'wilcity_featured_image',
 		'wilcity_cover_image',
 		'wilcity_gallery',
+		'wiloke_listgo_gallery',
+		'wiloke_listgo_settings',
 		'wilcity_expiration',
 		'wilcity_ltpro_options',
+		'wilcity_listgo_event_settings',
 		'wilcity_event_frequency',
 		'wilcity_event_specify_day',
 		'wilcity_event_start_at',
@@ -453,26 +469,106 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 						SetSettings::setPostMeta($aListing['ID'], 'button_name', $aParseData);
 					}
 					break;
+				case 'wiloke_listgo_settings':
+					if (!empty($aParseData)) {
+						if (isset($aParseData['logo'])) {
+							$aLogo = wilcityMigrationInsertImage($aParseData['logo']);
+							if ($aLogo) {
+								SetSettings::setPostMeta($aListing['ID'], 'logo', $aLogo['url']);
+								SetSettings::setPostMeta($aListing['ID'], 'logo_id', $aLogo['id']);
+							}
+						}
+
+						if (isset($aParseData['contact_email']) && !empty($aParseData['contact_email'])) {
+							SetSettings::setPostMeta($aListing['ID'], 'email', $aParseData['contact_email']);
+						}
+
+						if (isset($aParseData['phone_number']) && !empty($aParseData['phone_number'])) {
+							SetSettings::setPostMeta($aListing['ID'], 'phone', $aParseData['phone_number']);
+						}
+
+						if (isset($aParseData['website']) && !empty($aParseData['website'])) {
+							SetSettings::setPostMeta($aListing['ID'], 'website', $aParseData['website']);
+						}
+
+						if (isset($aParseData['map']) && !empty($aParseData['map'])) {
+							if (isset($aParseData['map']['location']) && !empty($aParseData['map']['location'])) {
+								if (isset($aParseData['map']['latlong']) && !empty($aParseData['map']['latlong'])) {
+									$aParseLatLng = explode(',', $aParseData['map']['latlong']);
+									$lat = $aParseLatLng[0];
+									$lng = $aParseLatLng[1];
+
+									$aAddress['address'] = $aParseData['map']['location'];
+									$aAddress['lat'] = $lat;
+									$aAddress['lng'] = $lng;
+								}
+							}
+						}
+					}
+					break;
+				case 'wiloke_listgo_gallery':
+					$aParseData = maybe_unserialize($data);
+					if (!empty($aParseData) && isset($aParseData['gallery']) && !empty($aParseData['gallery'])) {
+						$aDownloadedGallery = [];
+						foreach ($aParseData['gallery'] as $imgSrc) {
+							$aAttachment = wilcityMigrationInsertImage($imgSrc);
+							if ($aAttachment) {
+								$aDownloadedGallery[$aAttachment['id']] = $aAttachment['url'];
+							}
+						}
+						if (!empty($aDownloadedGallery)) {
+							SetSettings::setPostMeta($postID, 'gallery', $aDownloadedGallery);
+						}
+					}
+					break;
+				case 'wilcity_listgo_event_settings':
+					if (!empty($aParseData)) {
+						$aEventData['frequency'] = 'occurs_once';
+						$aEventData['parentID'] = 0;
+						$aEventData['start_at'] = $aParseData['start_at'];
+						$aEventData['start_on'] = $aParseData['start_on'];
+						$aEventData['end_at'] = $aParseData['end_at'];
+						$aEventData['end_on'] = $aParseData['end_on'];
+						$aAddress['lat'] = $aParseData['latitude'];
+						$aAddress['lng'] = $aParseData['longitude'];
+						$aAddress['address'] = $aParseData['place_detail'];
+						$aEventData['specify_day'] = 'always';
+					}
+					break;
 				case 'wilcity_event_frequency':
-					$aEventData['frequency'] = empty($aParseData) ? 'occurs_once' : trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['frequency'] = empty($aParseData) ? 'occurs_once' : trim($aParseData);
+					}
 					break;
 				case 'wilcity_event_belongs_to':
-					$aEventData['parentID'] = $aParseData;
+					if (empty($aEventData)) {
+						$aEventData['parentID'] = $aParseData;
+					}
 					break;
 				case 'wilcity_event_start_at':
-					$aEventData['start_at'] = trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['start_at'] = trim($aParseData);
+					}
 					break;
 				case 'wilcity_event_start_on':
-					$aEventData['start_on'] = trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['start_on'] = trim($aParseData);
+					}
 					break;
 				case 'wilcity_event_end_at':
-					$aEventData['end_at'] = trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['end_at'] = trim($aParseData);
+					}
 					break;
 				case 'wilcity_event_end_on':
-					$aEventData['end_on'] = trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['end_on'] = trim($aParseData);
+					}
 					break;
 				case 'wilcity_event_specify_day':
-					$aEventData['specify_day'] = empty($aParseData) ? 'always' : trim($aParseData);
+					if (empty($aEventData)) {
+						$aEventData['specify_day'] = empty($aParseData) ? 'always' : trim($aParseData);
+					}
 					break;
 				case 'wilcity_logo':
 					$aLogo = wilcityMigrationInsertImage($aParseData);
@@ -622,20 +718,22 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					}
 					break;
 				case 'wilcity_price_range':
-					$aConvertPriceStatus = [
-						'notsay'         => '',
-						'inexpensive'    => 'cheap',
-						'moderate'       => 'moderate',
-						'pricey'         => 'expensive',
-						'ultra_high_end' => 'ultra_high',
-					];
-					if (isset($aConvertPriceStatus[$field])) {
-						$priceRange = $aConvertPriceStatus[$field];
-					} else {
-						$priceRange = $aParseData;
-					}
+					if (!empty($aParseData)) {
+						$aConvertPriceStatus = [
+							'notsay'         => '',
+							'inexpensive'    => 'cheap',
+							'moderate'       => 'moderate',
+							'pricey'         => 'expensive',
+							'ultra_high_end' => 'ultra_high',
+						];
+						if (isset($aConvertPriceStatus[$field])) {
+							$priceRange = $aConvertPriceStatus[$field];
+						} else {
+							$priceRange = $aParseData;
+						}
 
-					SetSettings::setPostMeta($aListing['ID'], 'price_range', $priceRange);
+						SetSettings::setPostMeta($aListing['ID'], 'price_range', $priceRange);
+					}
 					break;
 				case 'wilcity_price_range_minimum':
 					if (!empty($aParseData)) {
@@ -690,10 +788,6 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 								$aAddress['address'] = $oOutput->results[1]->formatted_address;
 							}
 						}
-
-						//                        if (!empty($aAddress['address'])) {
-						//                            ListingMetaBox::saveData($postID, $aAddress);
-						//                        }
 					}
 					break;
 				case 'wilcity_address':
@@ -1002,8 +1096,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	//Listing location
 	if (!empty($aAddress)) {
 		ListingMetaBox::saveData($aListing['ID'], $aAddress);
-		SetSettings::setPostMeta($aListing['ID'], 'location', $aAddress);
+//		SetSettings::setPostMeta($aListing['ID'], 'location', $aAddress);
 	}
+
 }
 
 $wilcityAddon->set_import_function('wilcity_migrating_to_wilcity');
