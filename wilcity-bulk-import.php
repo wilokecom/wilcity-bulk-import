@@ -64,11 +64,6 @@ function wilcityIsImageExists($url)
 if (!function_exists('wilcityMigrationInsertImage')) {
 	function wilcityMigrationInsertImage($imgSrc)
 	{
-		$imgSrc = 'https://xolpages.com/wp-content/uploads/Drainage-Services-10.jpg';
-		//$imgSrc= https://demo.wilcityapp.com/wp-content/uploads/2021/09/e11dbf5a-064b-3402-b3c9-02598bfab9e6.jpg
-
-		//http://localhost/wilcity/wp-content/uploads/2021/07/Capture-5.png
-//		$imgSrc = 'http://localhost/wilcity/wp-content/uploads/2021/07/Capture-5.png';
 		if (empty($imgSrc)) {
 			return false;
 		}
