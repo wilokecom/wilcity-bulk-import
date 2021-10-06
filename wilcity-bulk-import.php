@@ -40,6 +40,7 @@ $aSocialNetworks = [
 
 include plugin_dir_path(__FILE__) . 'rapid-addon.php';
 
+
 function wilcityCleanImageFileName($fileName)
 {
 	$aFileExtension = ['jpg', 'jpeg', 'png', 'gif', 'svg'];
@@ -62,6 +63,11 @@ function wilcityIsImageExists($url)
 if (!function_exists('wilcityMigrationInsertImage')) {
 	function wilcityMigrationInsertImage($imgSrc)
 	{
+		$imgSrc = 'https://xolpages.com/wp-content/uploads/Drainage-Services-10.jpg';
+		//$imgSrc= https://demo.wilcityapp.com/wp-content/uploads/2021/09/e11dbf5a-064b-3402-b3c9-02598bfab9e6.jpg
+
+		//http://localhost/wilcity/wp-content/uploads/2021/07/Capture-5.png
+//		$imgSrc = 'http://localhost/wilcity/wp-content/uploads/2021/07/Capture-5.png';
 		if (empty($imgSrc)) {
 			return false;
 		}
@@ -286,9 +292,19 @@ function wilcityDetermineDay($rawDay, $aData = [])
 					],
 					'day'  => $day
 				];
+			} elseif (strpos($rawDay, 'hours') !== false){
+				return [
+					'info' => [
+						'start' => '24:00AM',
+						'close' => '24:00PM'
+					],
+					'day'  => $day
+				];
 			} else {
+
 				$aParseBusinessHourTable = explode('|', $bh);
 				$aInfo = [];
+
 
 				if (isset($aParseBusinessHourTable[0])) {
 					$aParsed = explode(
@@ -333,6 +349,7 @@ function wilcityParseNormalBusinessHour($aParseBusinessHours, $aData = [])
 	global $aDayOfWeeks, $aDayOfWeeksShort;
 
 	$aBusinessHours = [];
+
 	foreach ($aParseBusinessHours as $rawVal) {
 		$aParsed = wilcityDetermineDay($rawVal, $aData);
 		$aBusinessHours[$aParsed['day']] = $aParsed['info'];
@@ -447,6 +464,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	$aRestaurantMenus = [];
 
 	$aEventData = [];
+	if (empty($aListing['ID']) && !empty($postID)) {
+		$aListing['ID'] = $postID;
+	}
+
 	foreach ($aFields as $field) {
 		if (empty($aListing['ID']) || $wilcityAddon->can_update_meta($field, $importOptions)) {
 			$data = $aData[$field];
@@ -536,37 +557,38 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					}
 					break;
 				case 'wilcity_event_frequency':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['frequency'] = empty($aParseData) ? 'occurs_once' : trim($aParseData);
 					}
 					break;
 				case 'wilcity_event_belongs_to':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['parentID'] = $aParseData;
 					}
 					break;
 				case 'wilcity_event_start_at':
-					if (empty($aEventData)) {
+
+					if (!empty($aParseData)) {
 						$aEventData['start_at'] = trim($aParseData);
 					}
 					break;
 				case 'wilcity_event_start_on':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['start_on'] = trim($aParseData);
 					}
 					break;
 				case 'wilcity_event_end_at':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['end_at'] = trim($aParseData);
 					}
 					break;
 				case 'wilcity_event_end_on':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['end_on'] = trim($aParseData);
 					}
 					break;
 				case 'wilcity_event_specify_day':
-					if (empty($aEventData)) {
+					if (!empty($aParseData)) {
 						$aEventData['specify_day'] = empty($aParseData) ? 'always' : trim($aParseData);
 					}
 					break;
@@ -591,7 +613,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							$aBusinessHours['hourMode'] = 'no_hours_available';
 						}
 					} else {
-						$aBusinessHours['hourMode'] = 'no_hours_available';
+						$aBusinessHours['hourMode'] = 'open_for_selected_hours';
 					}
 					break;
 				case 'wilcity_listify_business_hours':
@@ -676,13 +698,17 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					break;
 				case 'wilcity_business_normal_hours':
 					if (!empty($aData['wilcity_business_normal_hours'])) {
+
 						$aBusinessHours['hourMode'] = 'open_for_selected_hours';
 						$aBusinessHours['businessHours'] = [];
 						$aRawBH = explode(',', trim($aData['wilcity_business_normal_hours'],
 							','));
+
 						$aParsedBusinessHours = wilcityParseNormalBusinessHour($aRawBH, $aData);
+
 						$order = 0;
 						foreach ($aParsedBusinessHours as $dayOfWeek => $aBHInfo) {
+							$aDay = [];
 							if (!$aBusinessHours) {
 								$aDay['isOpen'] = 'no';
 								$aDay['operating_times']['firstOpenHour'] = '';
@@ -703,6 +729,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 									$aDay['operating_times']['firstCloseHour'] = $aBHInfo['close'];
 								}
 							}
+
 							$aBusinessHours['businessHours'][$aDaysOfWeekKeys[$order]] = $aDay;
 							$order++;
 						}
@@ -1001,6 +1028,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					break;
 				case 'wilcity_restaurant_menu_items':
 					$aItems = is_array($aParseData) ? $aParseData : explode('|', $aParseData);
+
 					foreach ($aItems as $order => $aItem) {
 						$aItem = maybe_unserialize($aItem);
 
