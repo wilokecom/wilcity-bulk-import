@@ -5,12 +5,13 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.6.1
+ * Version: 1.6.2
  */
 
 use WilokeListingTools\Framework\Helpers\GetSettings;
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
 use WilokeListingTools\Framework\Helpers\SetSettings;
+use WilokeListingTools\Models\EventModel;
 
 $aSocialNetworks = [
 	'facebook',
@@ -226,10 +227,11 @@ $wilcityAddon->add_field('wilcity_event_frequency',
 $wilcityAddon->add_field('wilcity_listgo_event_settings', 'Listgo Event Settings', 'text');
 $wilcityAddon->add_field('wilcity_event_belongs_to', 'Event Parent', 'text');
 $wilcityAddon->add_field('wilcity_event_specify_day', 'Specify day', 'text');
-$wilcityAddon->add_field('wilcity_event_start_at', 'Event Opening At (EG: 12:00:00 AM)', 'text');
-$wilcityAddon->add_field('wilcity_event_start_on', 'Event Start On (EG: 2018/11/30)', 'text');
+$wilcityAddon->add_field('wilcity_event_start_at', 'Event Opening At (EG: 12:00:00 AM)',
+	'text');
+$wilcityAddon->add_field('wilcity_event_start_on', 'You should use the following date formats: Y/m/d or m/d/Y. EG: Event Start On 2018/11/30', 'text');
 $wilcityAddon->add_field('wilcity_event_end_at', 'Event Close At (EG: 12:00:00 AM)', 'text');
-$wilcityAddon->add_field('wilcity_event_end_on', 'Event Close On (EG: 2018/11/30)', 'text');
+$wilcityAddon->add_field('wilcity_event_end_on', 'You should use the following date formats: Y/m/d or m/d/Y. EG: EG: 2018/11/30', 'text');
 
 $aDayOfWeeks = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 $aDayOfWeeksShort = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -1087,10 +1089,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 			$aPrepares[] = '%s';
 		}
 
-		$status = \WilokeListingTools\Models\EventModel::updateEventData($aListing['ID'], [
+		$status = EventModel::updateEventData($aListing['ID'], [
 			'values'   => $aUpdateEvent,
 			'prepares' => $aPrepares
-		]);
+		], 'm/d/Y');
 	}
 
 	//Listing location
