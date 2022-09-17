@@ -457,6 +457,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	$aDaysOfWeekKeys = array_keys($aDaysOfWeeks);
 
 	$aBusinessHours = [];
+	$hourMode = "no_hours_available";
 	$aAddress = [];
 	$aRestaurantMenus = [];
 
@@ -604,13 +605,16 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					break;
 				case 'wilcity_toggle_business_status':
 					if (!empty($aParseData)) {
-						if ($aParseData == 'enable') {
+						if ($aParseData == 'open_for_selected_hours') {
 							$aBusinessHours['hourMode'] = 'open_for_selected_hours';
-						} else if ($aParseData == 'disable') {
-							$aBusinessHours['hourMode'] = 'no_hours_available';
+							$hourMode = "open_for_selected_hours";
+						} else if ($aParseData == 'no_hours_available') {
+							$hourMode = "no_hours_available";
+						} else if ($aParseData == 'always' || $aParseData == 'always_open') {
+							$hourMode = "always_open";
 						}
 					} else {
-						$aBusinessHours['hourMode'] = 'open_for_selected_hours';
+						$hourMode = "no_hours_available";
 					}
 					break;
 				case 'wilcity_listify_business_hours':
@@ -694,13 +698,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					}
 					break;
 				case 'wilcity_business_normal_hours':
-					if (!empty($aData['wilcity_business_normal_hours'])) {
-
-						$aBusinessHours['hourMode'] = 'open_for_selected_hours';
+					if (!empty($aData['wilcity_business_normal_hours']) && !in_array($hourMode, ["always_open", "no_hours_available"])) {
+						$aBusinessHours['hourMode'] = $aBusinessHours['hourMode'] ?? 'open_for_selected_hours';
 						$aBusinessHours['businessHours'] = [];
-						$aRawBH = explode(',', trim($aData['wilcity_business_normal_hours'],
-							','));
-
+						$aRawBH = explode(',', trim($aData['wilcity_business_normal_hours'], ','));
 						$aParsedBusinessHours = wilcityParseNormalBusinessHour($aRawBH, $aData);
 
 						$order = 0;
@@ -1067,7 +1068,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					if (strpos($field, 'wilcity_social_media_') !== false) {
 						if (!empty($aParseData)) {
 							$socialKey = str_replace('wilcity_social_media_', '', $field);
-							$aSocialUpdated = GetSettings::getSocialNetworks($aListing['ID']);
+							$aSocialUpdated = GetSettings::getSocialNetworks($aListing['ID'], true);
 							$aSocialUpdated = empty($aSocialUpdated) || !is_array($aSocialUpdated) ? [] :
 								$aSocialUpdated;
 							$aSocialUpdated[$socialKey] = $aParseData;
@@ -1085,8 +1086,9 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	}
 
 	//No hours available
-	if (empty($aBusinessHours) || $aBusinessHours['hourMode'] == '') {
-		SetSettings::setPostMeta($aListing['ID'], 'hourMode', 'no_hours_available');
+	if (empty($aBusinessHours)) {
+		$hourMode = $hourMode ?? "no_hours_available";
+		SetSettings::setPostMeta($aListing['ID'], 'hourMode', $hourMode);
 	}
 
 	//Event Data
@@ -1121,7 +1123,6 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 	//Listing location
 	if (!empty($aAddress)) {
 		ListingMetaBox::saveData($aListing['ID'], $aAddress);
-//		SetSettings::setPostMeta($aListing['ID'], 'location', $aAddress);
 	}
 
 }
