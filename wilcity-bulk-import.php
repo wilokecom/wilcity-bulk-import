@@ -5,7 +5,7 @@
  * Author: Wiloke
  * Author URI: https://wilcity.com
  * Description: Migrating from another theme to Wilcity
- * Version: 1.6.2
+ * Version: 1.6.3g
  */
 
 use WilokeListingTools\Framework\Helpers\GetSettings;
