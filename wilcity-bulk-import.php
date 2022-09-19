@@ -9,6 +9,7 @@
  */
 
 use WilokeListingTools\Framework\Helpers\GetSettings;
+use WilokeListingTools\Framework\Helpers\MapFactory;
 use WilokeListingTools\MetaBoxes\Listing as ListingMetaBox;
 use WilokeListingTools\Framework\Helpers\SetSettings;
 use WilokeListingTools\Models\EventModel;
@@ -64,7 +65,7 @@ function wilcityIsImageExists($url)
 if (!function_exists('wilcityMigrationInsertImage')) {
 	function wilcityMigrationInsertImage($imgSrc)
 	{
-		if (empty($imgSrc)) {
+		if (empty($imgSrc) || strpos("http", $imgSrc) == -1) {
 			return false;
 		}
 		$imgSrc = trim($imgSrc);
@@ -99,7 +100,7 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 		}
 
 		$tmpFile = download_url($imgSrc);
-		if ($tmpFile === false) {
+		if ($tmpFile === false || is_wp_error($tmpFile)) {
 			return false;
 		}
 		copy($tmpFile, $wp_upload_dir['path'] . '/' . $filename);
@@ -806,7 +807,7 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 							$geocodeFromLatLong
 								= file_get_contents('https://maps.googleapis.com/maps/api/geocode/json?latlng=' .
 								trim($aAddress['lat']) . ',' . trim($aAddress['lng']) . '&key=' .
-								$aThemeOptions['general_google_api']);
+								$aThemeOptions['general_google_web_service_api']);
 
 							$oOutput = json_decode($geocodeFromLatLong);
 							if ($oOutput->status == 'OK') {
@@ -819,13 +820,10 @@ function wilcity_migrating_to_wilcity($postID, $aData, $importOptions, $aListing
 					$aAddress['address'] = $aParseData;
 					if ((empty($aAddress['lat']) && empty($aAddress['lng'])) && empty($aAddress['wilcity_lat_lng'])) {
 						if (!empty($aAddress['address'])) {
-							$geocode = file_get_contents("https://maps.google.com/maps/api/geocode/json?address=" .
-								urlencode($aAddress['address']) . "&key=" .
-								trim($aThemeOptions['general_google_api']));
-							$oGeocode = json_decode($geocode);
-							if ($oGeocode->status == 'OK') {
-								$aAddress['lat'] = $oGeocode->results[0]->geometry->location->lat;
-								$aAddress['lng'] = $oGeocode->results[0]->geometry->location->lng;
+							$aGeocoder = MapFactory::get()->getGeocoder($aAddress['address']);
+							if (is_array($aGeocoder) && isset($aGeocoder[0]) && isset($aGeocoder[0]['coordinate'])) {
+								$aAddress['lat'] = round($aGeocoder[0]['coordinate']['lat'], 3);
+								$aAddress['lng'] = round($aGeocoder[0]['coordinate']['lng'], 3);
 								//ListingMetaBox::saveData($postID, $aAddress);
 							}
 						}
