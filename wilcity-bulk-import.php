@@ -143,9 +143,11 @@ if (!function_exists('wilcityMigrationInsertImage')) {
 
 function wilcityTimezoneToString($time)
 {
-	if (strpos($time, 'GMT') !== false) {
+	if (strpos($time, 'UTC') === false) {
 		return $time;
 	}
+
+
 
 	$time = str_replace(['UTC', '+'], ['', ''], $time);
 
